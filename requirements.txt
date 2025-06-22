@@ -1,0 +1,4 @@
+gradio>=4.20.1
+requests>=2.31.0
+beautifulsoup4>=4.12.3
+openai>=1.30.1
