@@ -51,7 +51,7 @@ def get_brochure_user_prompt(company_name, url):
     user_prompt += get_all_details(url)
     return user_prompt[:5000]  # Truncate if needed
 
-def create_brochure(company_name, url):
+def stream_llama(company_name, url):
     prompt = get_brochure_user_prompt(company_name, url)
     response = openai.chat.completions.create(
         model=MODEL,
@@ -59,16 +59,46 @@ def create_brochure(company_name, url):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt}
         ],
+        stream=True
     )
-    result = response.choices[0].message.content
-    return result
+    reply = ''
+    for chunk in response:
+        reply += chunk.choices[0].delta.content or ''
+        yield reply
+
+
+def stream_gemma(company_name,url):
+    prompt = get_brochure_user_prompt(company_name,url)
+    response = openai.chat.completions.create(
+        model = "gemma3:4b",
+        messages = [
+            {"role":"system","content":system_prompt},
+            {"role": "user","content":prompt}
+        ],
+        stream = True
+    )
+    reply = ""
+    for chunk in response:
+        reply += chunk.choices[0].delta.content
+        yield reply
+
+
+def create_brochure(company_name,url,model):
+    if model == "llama":
+        result = stream_llama(company_name,url)
+    elif model == "gemma":
+        result = stream_gemma(company_name,url)
+    else:
+        raise ValueError("Uknown model")
+    yield from result        
 
 # Gradio UI
 gr.Interface(
     fn=create_brochure,
     inputs=[
         gr.Textbox(label="Company Name"),
-        gr.Textbox(label="Website URL")
+        gr.Textbox(label="Website URL"),
+        gr.Dropdown(["llama","gemma"], label="Select model")
     ],
     outputs=gr.Markdown(label="AI Brochure"),
     title="📄 AI Website Brochure Generator",
